@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сократитель ссылок</title>
+</head>
+<body>
+    <h1>Сократитель ссылок</h1>
+    <form action="/shorten" method="POST">
+        <label for="original_url">Введите ссылку:</label><br>
+        <input type="text" id="original_url" name="original_url" required><br><br>
+        <button type="submit">Сократить ссылку</button>
+    </form>
+    <br>
+    <label for="shortUrlOutput">Сокращенная ссылка:</label><br>
+    <input type="text" id="shortUrlOutput" readonly><br>
+</body>
+</html>
