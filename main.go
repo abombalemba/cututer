@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"math/rand"
 	"sync"
+	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -18,7 +19,12 @@ var (
 )
 
 const (
-	lengthShortUrl = 10
+	protocol = "http://"
+	host = "localhost"
+	port = "8080"
+	path = "/c/"
+
+	lengthShortUrl = 3
 	letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 )
 
@@ -35,10 +41,10 @@ func main() {
 	defer db.Close()
 
 	http.HandleFunc("/", indexUrlHandler)
-	//http.HandleFunc("/c/", cUrlHandler)
-	http.HandleFunc("/shorten", shortenUrlHandler)
+	http.HandleFunc("/api", apiUrlHandler)
+	http.HandleFunc("/c/", cUrlHandler)
 
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	if err := http.ListenAndServe(":" + port, nil); err != nil {
 		panic(err)
 	}
 }
@@ -55,7 +61,7 @@ func generateShortUrl(originalUrl string) string {
 		log.Fatalf("error or this short is existing", res, err)
 	}
 
-	return "http://85.193.81.143/" + str
+	return str
 }
 
 func generateRandomString() string {
@@ -69,12 +75,17 @@ func generateRandomString() string {
 	return string(str)
 }
 
+func checkGeneratedShortUrl(shortUrl string) {
+
+}
+
 func initDB() {
 	var err error
 
 	db, err = sql.Open("sqlite3", "./urls.db")
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
 
 	createTableSQL := `
@@ -88,45 +99,38 @@ func initDB() {
 	_, err = db.Exec(createTableSQL)
 	if err != nil {
 		log.Fatal(err)
+		return
 	}
+
+	log.Println("initDB successfully executed")
 }
 
 func indexUrlHandler(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, "index.html")
+
+	log.Println("indexUrlHandler successfully executed")
 }
 
-func cUrlHandler(w http.ResponseWriter, r *http.Request) {
+func apiUrlHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		log.Fatalf("apiUrlHandler failed because another method not allowed", r.Method)
+		http.Error(w, "apiUrlHandler failed because another method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	var req UrlRequest
 
-	log.Println("45 ok")
-
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "71", http.StatusBadRequest)
+		log.Fatalf("apiUrlHandler failed because there was a parsing error", err)
+		http.Error(w, "apiUrlHandler failed because there was a parsing error", http.StatusBadRequest)
 		return
 	}
 
 	req.OriginalUrl = r.FormValue("original_url")
 
 	if req.OriginalUrl == "" {
-		http.Error(w, "95", http.StatusBadRequest)
-		return
-	}
-}
-
-func shortenUrlHandler(w http.ResponseWriter, r *http.Request) {
-	var req UrlRequest
-
-	if err := r.ParseForm(); err != nil {
-		log.Fatalf("shortenUrlHandler failed because there was a parsing error", err)
-		http.Error(w, "shortenUrlHandler failed because there was a parsing error", http.StatusBadRequest)
-		return
-	}
-
-	req.OriginalUrl = r.FormValue("original_url")
-
-	if req.OriginalUrl == "" {
-		log.Fatalf("shortenUrlHandler failed because req.OriginalUrl = \"\"")
-		http.Error(w, "shortenUrlHandler failed because req.OriginalUrl = \"\"", http.StatusBadRequest)
+		log.Fatalf("apiUrlHandler failed because req.OriginalUrl = \"\"")
+		http.Error(w, "apiUrlHandler failed because req.OriginalUrl = \"\"", http.StatusBadRequest)
 		return
 	}
 
@@ -143,9 +147,34 @@ func shortenUrlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	shortUrl = protocol + host + ":" + port + path + shortUrl
+
 	response := UrlResponse{ShortUrl: shortUrl}
-	w.Header().Set("Content-Type", "x-www-form-urlencoded")
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 
-	log.Println("shortenUrlHandler successfully executed")
+	log.Println("apiUrlHandler successfully executed")
+}
+
+func cUrlHandler(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	path = strings.TrimPrefix(path, "/c/")
+
+	row := db.QueryRow(
+		"SELECT original_url FROM urls WHERE short_url == ? LIMIT 1", path)
+
+	var originalUrl string
+
+	err := row.Scan(&originalUrl)
+
+	if err != nil {
+		log.Fatalf("cUrlHandler failed because SQL query got error", err)
+		http.Error(w, "cUrlHandler failed because SQL query got error", http.StatusBadRequest)
+		return
+	}
+
+	http.Redirect(w, r, originalUrl, http.StatusFound)
+
+	log.Println("cUrlHandler successfully executed")
 }

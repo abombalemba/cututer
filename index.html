@@ -4,10 +4,52 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Сократитель ссылок</title>
+    <style>
+        #copyButton {
+            background-color: lightblue;
+            border: none;
+            color: white;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script>
+        $(function() {
+            $('#linkForm').submit(function(e) {
+                e.preventDefault();
+
+                let originalURLInput = $('#original_url');
+                let shortUrlOutput = $('#shortUrlOutput');
+
+                $.ajax({
+                    url: '/api',
+                    method: 'POST',
+                    data: $(this).serialize(),
+                    success: function(data) {
+                        shortUrlOutput.val(data.short_url);
+                        copyToClipboard(data.short_url);
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        alert('Ошибка: ' + jqXHR.status + ' ' + textStatus + ' ' + errorThrown);
+                    }
+                });
+            });
+
+            function copyToClipboard(text) {
+                var $temp = $("<input>");
+                $("body").append($temp);
+                $temp.val(text).select();
+                document.execCommand("copy");
+                $temp.remove();
+            }
+        });
+    </script>
 </head>
 <body>
     <h1>Сократитель ссылок</h1>
-    <form action="/shorten" method="POST">
+    <form id="linkForm" action="/api" method="POST">
         <label for="original_url">Введите ссылку:</label><br>
         <input type="text" id="original_url" name="original_url" required><br><br>
         <button type="submit">Сократить ссылку</button>
@@ -15,5 +57,6 @@
     <br>
     <label for="shortUrlOutput">Сокращенная ссылка:</label><br>
     <input type="text" id="shortUrlOutput" readonly><br>
+    <button id="copyButton" onclick="copyToClipboard(document.getElementById('shortUrlOutput').value)">Копировать</button>
 </body>
 </html>
