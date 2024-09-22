@@ -1,2 +1,2 @@
-# secret.io
+# cututer.ru
 web-service for shorting links
